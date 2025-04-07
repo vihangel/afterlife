@@ -50,18 +50,18 @@ def scroll_and_expand(driver: WebDriver, max_rounds: int = 10) -> None:
             pass
 
         rounds += 1
-
+        
 def extract_comments_with_bs(html: str) -> List[Dict[str, str]]:
     from bs4 import BeautifulSoup
+    import re
     soup = BeautifulSoup(html, 'html.parser')
     comments_data: List[Dict[str, str]] = []
+    seen = set()
 
-    # Filtrar apenas blocos x9f619 com username válido
     all_blocks = soup.find_all("div", class_="x9f619")
     print(f"🔎 Total bruto de blocos: {len(all_blocks)}")
 
     for block in all_blocks:
-        # Ignorar blocos visivelmente irrelevantes (curtidas, responder, etc.)
         if block.has_attr("style") and "height: 16px" in block["style"]:
             continue
         if block.find("div", role="button"):
@@ -70,19 +70,32 @@ def extract_comments_with_bs(html: str) -> List[Dict[str, str]]:
         username_tag = block.find("span", class_="_ap3a")
         if not username_tag:
             continue
-
         username = username_tag.get_text(strip=True)
 
-        # Buscar spans de texto
         text_spans = block.find_all("span", class_=lambda c: c and (c.startswith("x193iq5w") or c.startswith("x1lliihq")))
-        comment_text = " ".join(span.get_text(" ", strip=True) for span in text_spans).strip()
 
-        if not comment_text:
+        # Limpar spans inúteis
+        clean_spans = [
+            span for span in text_spans
+            if span.get_text(strip=True).lower() not in ("ver tradução", "responder")
+            and not span.get_text(strip=True).strip().endswith("sem")
+        ]
+
+        comment_text = " ".join(
+            span.get_text(" ", strip=True) for span in clean_spans
+        ).strip()
+
+        # Remover username duplicado do começo
+        comment_text = re.sub(rf"^{re.escape(username)}[\s:–-]*", "", comment_text).strip()
+
+        # Ignorar se não tem texto útil (ou é só o nome)
+        if not comment_text or comment_text == username:
             continue
 
-        # Evitar strings inúteis
-        if comment_text.lower() in ("ver tradução", "responder") or comment_text.endswith("sem"):
+        key = (username, comment_text)
+        if key in seen:
             continue
+        seen.add(key)
 
         comments_data.append({
             "username": username,
@@ -92,7 +105,6 @@ def extract_comments_with_bs(html: str) -> List[Dict[str, str]]:
         print(f"✅ @{username}: {comment_text}")
 
     return comments_data
-
 
 
 def save_comments_to_csv(comments: List[Dict[str, str]], path: str = "data/instagram_comments_bs.csv") -> None:
