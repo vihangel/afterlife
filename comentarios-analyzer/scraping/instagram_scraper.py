@@ -18,7 +18,8 @@ selectors = {
     "username_elements": "span.x1lliihq.x1plvlek.xryxfnj.x1n2onr6.x1ji0vk5.x18bv5gf.x193iq5w.xeuugli.x1fj9vlw.x13faqbe.x1vvkbs.x1s928wv.xhkezso.x1gmr53x.x1cpjm7i.x1fgarty.x1943h6x.x1i0vuye.xvs91rp.xo1l8bm.x5n08af.x10wh9bi.x1wdrske.x8viiok.x18hxmgj > span > span > div > a > div > div > span._ap3a._aaco._aacw._aacx._aad7._aade",
     "datetime_elements": "span.x1lliihq.x1plvlek.xryxfnj.x1n2onr6.x1ji0vk5.x18bv5gf.x193iq5w.xeuugli.x1fj9vlw.x13faqbe.x1vvkbs.x1s928wv.xhkezso.x1gmr53x.x1cpjm7i.x1fgarty.x1943h6x.x1i0vuye.xvs91rp.xo1l8bm.x1roi4f4.x10wh9bi.x1wdrske.x8viiok.x18hxmgj > a > time",
     "view_replies_button": "//span[contains(text(), 'Ver todas as')]",
-    
+    "number_of_likes": "div.x9f619.xjbqb8w.x78zum5.x168nmei.x13lgxp2.x5pf9jr.xo71vjh.x1xmf6yo.x1uhb9sk.x1plvlek.xryxfnj.x1c4vz4f.x2lah0s.x1q0g3np.xqjyukv.x6s0dn4.x1oa3qoh.x1nhvcw1 span.x1lliihq.x193iq5w.x6ikm8r.x10wlt62.xlyipyv.xuxw1ft",
+    "number_of_comments": "span.x1lliihq.x1plvlek.xryxfnj.x1n2onr6.x1ji0vk5.x18bv5gf.x193iq5w.xeuugli.x1fj9vlw.x13faqbe.x1vvkbs.x1s928wv.xhkezso.x1gmr53x.x1cpjm7i.x1fgarty.x1943h6x.x1i0vuye.x1fhwpqd.x1s688f.x1roi4f4.x1s3etm8.x676frb.x10wh9bi.x1wdrske.x8viiok.x18hxmgj",
 }
 
 CSV_PATH = "data/instagram_comments_bs.csv"
@@ -42,7 +43,7 @@ def save_comments(comments: List[Dict[str, str]]):
     Path(CSV_PATH).parent.mkdir(parents=True, exist_ok=True)
     file_exists = Path(CSV_PATH).exists()
     with open(CSV_PATH, "a", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["username", "text"])
+        writer = csv.DictWriter(f, fieldnames=["username", "text", "likes"])
         if not file_exists:
             writer.writeheader()
         writer.writerows(comments)
@@ -70,16 +71,27 @@ def scroll_to_bottom(driver):
 
 def extract_comments(driver) -> List[Dict[str, str]]:
     usernames = driver.find_elements(By.CSS_SELECTOR, selectors["username_elements"])
-    comments = driver.find_elements(By.CSS_SELECTOR, selectors["comment_elements"])
+    text_comment = driver.find_elements(By.CSS_SELECTOR, selectors["comment_elements"])
+    likes = driver.find_elements(By.CSS_SELECTOR, selectors["number_of_likes"])
+    replys = driver.find_elements(By.CSS_SELECTOR, selectors["number_of_comments"])
+    
     print(f"🔍 Extraindo {len(usernames)} comentários... ")
     data = []
     seen = set()
-    for user_elem, comment_elem in zip(usernames, comments):
+    for user_elem, comment_elem, likes_elem, reply_elem in zip(usernames, text_comment, likes, replys):
         username = user_elem.text.strip()
         comment = comment_elem.text.strip()
+        like = likes_elem.text.strip() if likes_elem else "0"
+        reply = reply_elem.text.strip() if reply_elem else "0"
+   
         if username and comment and (username, comment) not in seen:
-            data.append({"username": username, "text": comment})
-            seen.add((username, comment))
+            like_count = ''.join(filter(str.isdigit, like))
+            data.append({
+                "username": username, 
+                "text": comment,
+                "likes": like_count,
+            })
+            seen.add((username, comment, like_count))
             print(f"✅ @{username}: {comment[:80]}")
     return data
 
