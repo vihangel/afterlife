@@ -27,6 +27,9 @@ CSV_PATH = "data/instagram_comments_bs.csv"
 def setup_driver():
     options = Options()
     options.add_argument("--disable-notifications")
+    options.add_argument("--headless=new")  
+    options.add_argument("--disable-gpu")
+    options.add_argument("--window-size=1920,1080")
     options.add_argument("--user-data-dir=/tmp/selenium-chrome-profile")
     options.add_argument("--profile-directory=Default")
     return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
